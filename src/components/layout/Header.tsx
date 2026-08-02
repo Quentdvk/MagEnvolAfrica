@@ -106,7 +106,7 @@ export default function Header() {
               </select>
             </div>
 
-            {/* Icônes et boutons */}
+            {/* Icônes et boutons desktop */}
             <div className="hidden md:flex items-center space-x-4">
               <button className="p-2 text-gray-600 hover:text-indigo-600">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -144,7 +144,22 @@ export default function Header() {
                 Faire un don
               </Link>
 
-              {/* Bouton menu réduit */}
+              {/* Bouton menu réduit desktop */}
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="p-2 text-gray-600 hover:text-indigo-600"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Bouton menu mobile */}
+            <div className="md:hidden flex items-center space-x-2">
+              <Link href="/login" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600">
+                Connexion
+              </Link>
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
                 className="p-2 text-gray-600 hover:text-indigo-600"
