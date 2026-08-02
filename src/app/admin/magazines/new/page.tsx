@@ -31,13 +31,13 @@ async function createMagazine(formData: FormData) {
   const supabase = await createClient();
   
   if (!supabase) {
-    return { error: 'Configuration Supabase manquante' };
+    throw new Error('Configuration Supabase manquante');
   }
 
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
-    return { error: 'Non authentifié' };
+    throw new Error('Non authentifié');
   }
 
   const title = formData.get('title') as string;
@@ -60,14 +60,14 @@ async function createMagazine(formData: FormData) {
     .single();
 
   if (error) {
-    return { error: error.message };
+    throw new Error(error.message);
   }
 
   // Create variants (PDF, ePub, Paper)
   const variants = [
-    { format: 'pdf', price: 5000, currency: 'XOF', isAvailable: true },
-    { format: 'epub', price: 5000, currency: 'XOF', isAvailable: true },
-    { format: 'paper', price: 10000, currency: 'XOF', isAvailable: true, stock: 50 },
+    { version: 'numerique', priceXof: 5000, availableLanguages: ['fr'], isAvailable: true },
+    { version: 'cd_audio', priceXof: 5000, availableLanguages: ['fr'], isAvailable: true },
+    { version: 'papier', priceXof: 10000, availableLanguages: ['fr'], isAvailable: true },
   ];
 
   for (const variant of variants) {
@@ -77,7 +77,7 @@ async function createMagazine(formData: FormData) {
     });
   }
 
-  return { success: true, magazineId: data.id };
+  redirect('/admin/magazines');
 }
 
 export default async function NewMagazine() {

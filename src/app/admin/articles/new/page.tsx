@@ -50,13 +50,13 @@ async function createArticle(formData: FormData) {
   const supabase = await createClient();
   
   if (!supabase) {
-    return { error: 'Configuration Supabase manquante' };
+    throw new Error('Configuration Supabase manquante');
   }
 
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
-    return { error: 'Non authentifié' };
+    throw new Error('Non authentifié');
   }
 
   const title = formData.get('title') as string;
@@ -66,7 +66,7 @@ async function createArticle(formData: FormData) {
   const isPublished = formData.get('isPublished') === 'true';
   const isPremium = formData.get('isPremium') === 'true';
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('articles')
     .insert({
       title,
@@ -77,15 +77,13 @@ async function createArticle(formData: FormData) {
       isPublished,
       isPremium,
       publishedAt: isPublished ? new Date().toISOString() : null,
-    })
-    .select()
-    .single();
+    });
 
   if (error) {
-    return { error: error.message };
+    throw new Error(error.message);
   }
 
-  return { success: true, articleId: data.id };
+  redirect('/admin/articles');
 }
 
 export default async function NewArticle() {
