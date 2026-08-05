@@ -1,77 +1,22 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { getAdminArticles, hasBackOfficeAccess } from '@/lib/data/admin';
+import { getCategories } from '@/lib/data/categories';
 
 export const dynamic = 'force-dynamic';
 
-async function checkAdminRole() {
-  const supabase = await createClient();
-  
-  if (!supabase) {
-    return false;
-  }
-
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return false;
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  return profile?.role === 'administrator';
-}
-
-async function getArticles() {
-  const supabase = await createClient();
-
-  if (!supabase) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('articles')
-    .select('*, categories(name)')
-    .order('publishedAt', { ascending: false });
-
-  if (error) {
-    return [];
-  }
-
-  return data;
-}
-
-async function getCategories() {
-  const supabase = await createClient();
-
-  if (!supabase) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .order('name');
-
-  if (error) {
-    return [];
-  }
-
-  return data;
-}
+const STATUS_LABELS: Record<string, string> = {
+  brouillon: 'Brouillon',
+  en_validation: 'En validation',
+  publie: 'Publié',
+  depublie: 'Dépublié',
+};
 
 export default async function AdminArticles() {
-  const isAdmin = await checkAdminRole();
-
-  if (!isAdmin) {
+  if (!(await hasBackOfficeAccess())) {
     redirect('/login');
   }
 
-  const articles = await getArticles();
-  const categories = await getCategories();
+  const [articles, categories] = await Promise.all([getAdminArticles(), getCategories()]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -113,28 +58,28 @@ export default async function AdminArticles() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {articles.length > 0 ? (
-                articles.map((article: any) => (
+                articles.map((article) => (
                   <tr key={article.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{article.title}</div>
-                      <div className="text-sm text-gray-500">{article.excerpt?.substring(0, 50)}...</div>
+                      <div className="text-sm text-gray-500">{article.chapo.substring(0, 50)}...</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {article.categories?.name || 'Non catégorisé'}
+                        {article.category}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        article.isPublished 
-                          ? 'bg-green-100 text-green-800' 
+                        article.status === 'publie'
+                          ? 'bg-green-100 text-green-800'
                           : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {article.isPublished ? 'Publié' : 'Brouillon'}
+                        {STATUS_LABELS[article.status]}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(article.publishedAt).toLocaleDateString('fr-FR')}
+                      {new Date(article.publishedAt ?? article.createdAt).toLocaleDateString('fr-FR')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <a
@@ -164,10 +109,10 @@ export default async function AdminArticles() {
         <div className="mt-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Catégories disponibles</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {categories.map((category: any) => (
+            {categories.map((category) => (
               <div key={category.id} className="bg-white rounded-lg shadow p-4">
-                <h3 className="font-semibold text-gray-900">{category.name}</h3>
-                <p className="text-sm text-gray-600">{category.description}</p>
+                <h3 className="font-semibold text-gray-900">{category.label}</h3>
+                <p className="text-sm text-gray-600">/{category.slug}</p>
               </div>
             ))}
           </div>

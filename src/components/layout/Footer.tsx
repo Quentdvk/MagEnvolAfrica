@@ -39,7 +39,7 @@ export default function Footer() {
           <div className="text-center">
             <span className="text-2xl font-bold text-white">ENVOL AFRICA MAG</span>
             <p className="mt-4 text-sm text-white max-w-2xl mx-auto">
-              Une chaîne regroupant toutes les valeurs pour votre succès en entreprises. Plus qu'un magazine, c'est le seul outil qui vous apporte tout pour réussir en affaires et prospérer à tout égard.
+              Une chaîne regroupant toutes les valeurs pour votre succès en entreprises. Plus qu&apos;un magazine, c&apos;est le seul outil qui vous apporte tout pour réussir en affaires et prospérer à tout égard.
             </p>
           </div>
         </div>

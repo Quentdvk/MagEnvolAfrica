@@ -1,23 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { SUPABASE_MISSING_CONFIG_MESSAGE, isSupabaseConfigured } from '@/lib/supabase/config';
 import type { User, Session } from '@supabase/supabase-js';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  
-  // Check if Supabase is configured
-  const isSupabaseConfigured = !!(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && 
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-  
-  const supabase = isSupabaseConfigured ? createClient() : null;
+  const configured = isSupabaseConfigured();
+  const [loading, setLoading] = useState(configured);
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     if (!supabase) {
-      setLoading(false);
       return;
     }
 
@@ -42,7 +36,7 @@ export function useAuth() {
 
   const signIn = async (email: string, password: string) => {
     if (!supabase) {
-      return { data: null, error: new Error('Supabase not configured') };
+      return { data: null, error: new Error(SUPABASE_MISSING_CONFIG_MESSAGE) };
     }
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -53,7 +47,7 @@ export function useAuth() {
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     if (!supabase) {
-      return { data: null, error: new Error('Supabase not configured') };
+      return { data: null, error: new Error(SUPABASE_MISSING_CONFIG_MESSAGE) };
     }
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -69,7 +63,7 @@ export function useAuth() {
 
   const signInWithOAuth = async (provider: 'google' | 'facebook') => {
     if (!supabase) {
-      return { data: null, error: new Error('Supabase not configured') };
+      return { data: null, error: new Error(SUPABASE_MISSING_CONFIG_MESSAGE) };
     }
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -82,7 +76,7 @@ export function useAuth() {
 
   const signOut = async () => {
     if (!supabase) {
-      return { error: new Error('Supabase not configured') };
+      return { error: new Error(SUPABASE_MISSING_CONFIG_MESSAGE) };
     }
     const { error } = await supabase.auth.signOut();
     return { error };
@@ -90,7 +84,7 @@ export function useAuth() {
 
   const resetPassword = async (email: string) => {
     if (!supabase) {
-      return { data: null, error: new Error('Supabase not configured') };
+      return { data: null, error: new Error(SUPABASE_MISSING_CONFIG_MESSAGE) };
     }
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/reset-password`,
@@ -102,6 +96,7 @@ export function useAuth() {
     user,
     session,
     loading,
+    isConfigured: configured,
     signIn,
     signUp,
     signInWithOAuth,

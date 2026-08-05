@@ -1,89 +1,69 @@
 import { redirect } from 'next/navigation';
+import { hasBackOfficeAccess } from '@/lib/data/admin';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-async function checkAdminRole() {
-  const supabase = await createClient();
-  
-  if (!supabase) {
-    return false;
-  }
-
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return false;
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  return profile?.role === 'administrator';
-}
-
 async function createMagazine(formData: FormData) {
   'use server';
-  
+
   const supabase = await createClient();
-  
+
   if (!supabase) {
     throw new Error('Configuration Supabase manquante');
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    throw new Error('Non authentifié');
+  if (!(await hasBackOfficeAccess())) {
+    redirect('/login');
   }
 
-  const title = formData.get('title') as string;
-  const description = formData.get('description') as string;
-  const issueNumber = parseInt(formData.get('issueNumber') as string);
-  const year = parseInt(formData.get('year') as string);
-  const isAvailable = formData.get('isAvailable') === 'true';
+  const numero = formData.get('numero') as string;
+  const summary = formData.get('summary') as string;
+  const editionType = (formData.get('editionType') as string) || 'normale';
+  const coverImageUrl = (formData.get('coverImageUrl') as string) ?? '';
+  const year = Number.parseInt(formData.get('year') as string, 10);
 
   const { data, error } = await supabase
     .from('magazines')
     .insert({
-      title,
-      description,
-      issueNumber,
-      year,
-      isAvailable,
-      publishedAt: new Date().toISOString(),
+      numero,
+      summary,
+      cover_image_url: coverImageUrl,
+      edition_type: editionType,
+      year: Number.isNaN(year) ? null : year,
+      published_at: new Date().toISOString(),
     })
-    .select()
+    .select('id')
     .single();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  // Create variants (PDF, ePub, Paper)
+  const magazineId = (data as { id: string }).id;
   const variants = [
-    { version: 'numerique', priceXof: 5000, availableLanguages: ['fr'], isAvailable: true },
-    { version: 'cd_audio', priceXof: 5000, availableLanguages: ['fr'], isAvailable: true },
-    { version: 'papier', priceXof: 10000, availableLanguages: ['fr'], isAvailable: true },
+    { version: 'numerique', price_xof: 5000 },
+    { version: 'cd_audio', price_xof: 5000 },
+    { version: 'papier', price_xof: 10000 },
   ];
 
-  for (const variant of variants) {
-    await supabase.from('magazine_variants').insert({
-      magazineId: data.id,
+  const { error: variantsError } = await supabase.from('magazine_variants').insert(
+    variants.map((variant) => ({
+      magazine_id: magazineId,
+      available_languages: ['fr'],
       ...variant,
-    });
+    }))
+  );
+
+  if (variantsError) {
+    throw new Error(variantsError.message);
   }
 
   redirect('/admin/magazines');
 }
 
 export default async function NewMagazine() {
-  const isAdmin = await checkAdminRole();
-
-  if (!isAdmin) {
+  if (!(await hasBackOfficeAccess())) {
     redirect('/login');
   }
 
@@ -99,46 +79,62 @@ export default async function NewMagazine() {
 
         <form action={createMagazine} className="bg-white rounded-lg shadow p-6 space-y-6">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-              Titre *
+            <label htmlFor="numero" className="block text-sm font-medium text-gray-700 mb-2">
+              Numéro *
             </label>
             <input
               type="text"
-              id="title"
-              name="title"
+              id="numero"
+              name="numero"
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Titre du magazine"
+              placeholder="001"
             />
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-              Description
+            <label htmlFor="summary" className="block text-sm font-medium text-gray-700 mb-2">
+              Sommaire *
             </label>
             <textarea
-              id="description"
-              name="description"
+              id="summary"
+              name="summary"
+              required
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Description du magazine"
+              placeholder="Sommaire du magazine"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="coverImageUrl" className="block text-sm font-medium text-gray-700 mb-2">
+              URL de la couverture
+            </label>
+            <input
+              type="url"
+              id="coverImageUrl"
+              name="coverImageUrl"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="https://..."
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="issueNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                Numéro *
+              <label htmlFor="editionType" className="block text-sm font-medium text-gray-700 mb-2">
+                Type d&apos;édition *
               </label>
-              <input
-                type="number"
-                id="issueNumber"
-                name="issueNumber"
+              <select
+                id="editionType"
+                name="editionType"
                 required
-                min="1"
+                defaultValue="normale"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="1"
-              />
+              >
+                <option value="normale">Édition normale</option>
+                <option value="speciale">Édition spéciale</option>
+                <option value="hors_serie">Hors-série</option>
+              </select>
             </div>
 
             <div>
@@ -158,28 +154,15 @@ export default async function NewMagazine() {
             </div>
           </div>
 
-          <div className="flex items-center">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                name="isAvailable"
-                value="true"
-                defaultChecked
-                className="mr-2 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-              />
-              <span className="text-sm text-gray-700">Disponible à la vente</span>
-            </label>
-          </div>
-
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 className="font-semibold text-gray-900 mb-2">Variantes automatiques</h3>
             <p className="text-sm text-gray-600">
               Les variantes suivantes seront créées automatiquement :
             </p>
             <ul className="text-sm text-gray-600 mt-2 space-y-1">
-              <li>• PDF : 5 000 XOF</li>
-              <li>• ePub : 5 000 XOF</li>
-              <li>• Papier : 10 000 XOF (stock: 50)</li>
+              <li>• Numérique (PDF) : 5 000 XOF</li>
+              <li>• CD audio : 5 000 XOF</li>
+              <li>• Papier : 10 000 XOF</li>
             </ul>
           </div>
 

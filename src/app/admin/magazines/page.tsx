@@ -1,57 +1,20 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { getAdminMagazines, hasBackOfficeAccess } from '@/lib/data/admin';
 
 export const dynamic = 'force-dynamic';
 
-async function checkAdminRole() {
-  const supabase = await createClient();
-  
-  if (!supabase) {
-    return false;
-  }
-
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return false;
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  return profile?.role === 'administrator';
-}
-
-async function getMagazines() {
-  const supabase = await createClient();
-
-  if (!supabase) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('magazines')
-    .select('*')
-    .order('publishedAt', { ascending: false });
-
-  if (error) {
-    return [];
-  }
-
-  return data;
-}
+const EDITION_LABELS: Record<string, string> = {
+  normale: 'Édition normale',
+  speciale: 'Édition spéciale',
+  hors_serie: 'Hors-série',
+};
 
 export default async function AdminMagazines() {
-  const isAdmin = await checkAdminRole();
-
-  if (!isAdmin) {
+  if (!(await hasBackOfficeAccess())) {
     redirect('/login');
   }
 
-  const magazines = await getMagazines();
+  const magazines = await getAdminMagazines();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -93,24 +56,28 @@ export default async function AdminMagazines() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {magazines.length > 0 ? (
-                magazines.map((magazine: any) => (
+                magazines.map((magazine) => (
                   <tr key={magazine.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{magazine.title}</div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {EDITION_LABELS[magazine.editionType] ?? magazine.editionType}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      #{magazine.issueNumber}
+                      N°{magazine.numero}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {magazine.year}
+                      {magazine.year ?? new Date(magazine.publishedAt).getFullYear()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        magazine.isAvailable 
-                          ? 'bg-green-100 text-green-800' 
+                        magazine.variantsCount > 0
+                          ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {magazine.isAvailable ? 'Disponible' : 'Indisponible'}
+                        {magazine.variantsCount > 0
+                          ? `${magazine.variantsCount} format(s)`
+                          : 'Aucun format'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

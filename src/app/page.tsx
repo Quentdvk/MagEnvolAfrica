@@ -1,6 +1,15 @@
 import Link from 'next/link';
+import ArticleCard from '@/components/editorial/ArticleCard';
+import MagazineCard from '@/components/kiosk/MagazineCard';
+import { getPublishedArticles } from '@/lib/data/articles';
+import { getMagazines } from '@/lib/data/magazines';
 
-export default function Home() {
+export const dynamic = 'force-dynamic';
+
+export default async function Home() {
+  const [articles, magazines] = await Promise.all([getPublishedArticles(4), getMagazines()]);
+  const latestMagazines = magazines.slice(0, 4);
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -11,11 +20,11 @@ export default function Home() {
               Envol Africa Magazine
             </h1>
             <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto">
-              Site de presse panafricain premium, kiosque digital et plateforme d'abonnement
+              Site de presse panafricain premium, kiosque digital et plateforme d&apos;abonnement
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/s-abonner" className="px-8 py-4 bg-white text-indigo-600 font-semibold rounded-lg hover:bg-gray-100 transition-colors">
-                S'abonner
+                S&apos;abonner
               </Link>
               <Link href="/kiosque" className="px-8 py-4 bg-transparent border-2 border-white text-white font-semibold rounded-lg hover:bg-white hover:text-indigo-600 transition-colors">
                 Visiter le Kiosque
@@ -29,14 +38,26 @@ export default function Home() {
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-8">À la Une</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Placeholder pour les blocs Sentinelles, Essor, Ombre douce */}
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-gray-200 h-64 rounded-lg flex items-center justify-center">
-                <span className="text-gray-500">Article {i}</span>
-              </div>
-            ))}
-          </div>
+          {articles.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {articles.map((article) => (
+                <ArticleCard
+                  key={article.id}
+                  id={article.id}
+                  title={article.title}
+                  excerpt={article.chapo}
+                  category={article.category}
+                  author={article.author}
+                  publishedAt={article.publishedAt}
+                  readTime={article.readTimeMinutes ?? undefined}
+                  freeLines={article.previewLines}
+                  isPremium={!article.isFree}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-600">Aucun article publié pour le moment.</p>
+          )}
         </div>
       </section>
 
@@ -44,13 +65,15 @@ export default function Home() {
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-8">Derniers Numéros</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-gray-100 h-80 rounded-lg flex items-center justify-center">
-                <span className="text-gray-500">Magazine {i}</span>
-              </div>
-            ))}
-          </div>
+          {latestMagazines.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {latestMagazines.map((magazine) => (
+                <MagazineCard key={magazine.id} magazine={magazine} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-600">Aucun numéro disponible pour le moment.</p>
+          )}
         </div>
       </section>
 
@@ -75,10 +98,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">Osez la réussite !</h2>
           <p className="text-xl mb-8 max-w-2xl mx-auto">
-            Rejoignez des milliers d'entrepreneurs africains qui s'informent et se forment avec Envol Africa Magazine
+            Rejoignez des milliers d&apos;entrepreneurs africains qui s&apos;informent et se forment avec Envol Africa Magazine
           </p>
           <Link href="/s-abonner" className="inline-block px-8 py-4 bg-white text-indigo-600 font-semibold rounded-lg hover:bg-gray-100 transition-colors">
-            S'abonner maintenant
+            S&apos;abonner maintenant
           </Link>
         </div>
       </section>
