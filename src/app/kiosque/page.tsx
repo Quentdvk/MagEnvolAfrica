@@ -1,85 +1,7 @@
 import MagazineCard from '@/components/kiosk/MagazineCard';
-import { createClient } from '@/lib/supabase/server';
-
-interface Magazine {
-  id: string;
-  title: string;
-  issueNumber: number;
-  year: number;
-  coverImageUrl?: string;
-  description?: string;
-  price: number;
-  currency: string;
-  isAvailable: boolean;
-}
+import { getMagazines } from '@/lib/data/magazines';
 
 export const dynamic = 'force-dynamic';
-
-async function getMagazines(): Promise<Magazine[]> {
-  const supabase = await createClient();
-
-  if (!supabase) {
-    // Return mock data for development without Supabase
-    return [
-      {
-        id: '1',
-        title: 'Envol Africa Magazine - Janvier 2026',
-        issueNumber: 1,
-        year: 2026,
-        coverImageUrl: undefined,
-        description: 'Le premier numéro de notre magazine économique panafricain.',
-        price: 5000,
-        currency: 'XOF',
-        isAvailable: true,
-      },
-      {
-        id: '2',
-        title: 'Envol Africa Magazine - Février 2026',
-        issueNumber: 2,
-        year: 2026,
-        coverImageUrl: undefined,
-        description: 'Spécial entrepreneuriat et innovation en Afrique.',
-        price: 5000,
-        currency: 'XOF',
-        isAvailable: true,
-      },
-      {
-        id: '3',
-        title: 'Envol Africa Magazine - Mars 2026',
-        issueNumber: 3,
-        year: 2026,
-        coverImageUrl: undefined,
-        description: 'Les opportunités d\'investissement dans le secteur agricole.',
-        price: 5000,
-        currency: 'XOF',
-        isAvailable: true,
-      },
-      {
-        id: '4',
-        title: 'Envol Africa Magazine - Avril 2026',
-        issueNumber: 4,
-        year: 2026,
-        coverImageUrl: undefined,
-        description: 'Numéro spécial sur la fintech africaine.',
-        price: 5000,
-        currency: 'XOF',
-        isAvailable: false,
-      },
-    ];
-  }
-
-  const { data, error } = await supabase
-    .from('magazines')
-    .select('*')
-    .order('year', { ascending: false })
-    .order('issueNumber', { ascending: false });
-
-  if (error || !data) {
-    return [];
-  }
-
-  return data as Magazine[];
-}
 
 export default async function KioskPage() {
   const magazines = await getMagazines();
@@ -93,7 +15,7 @@ export default async function KioskPage() {
             Kiosque Digital
           </h1>
           <p className="text-xl text-gray-600">
-            Achetez les numéros passés d'Envol Africa Magazine en format numérique
+            Achetez les numéros passés d&apos;Envol Africa Magazine en format numérique
           </p>
         </header>
 
@@ -101,18 +23,7 @@ export default async function KioskPage() {
         {magazines.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {magazines.map((magazine) => (
-              <MagazineCard
-                key={magazine.id}
-                id={magazine.id}
-                title={magazine.title}
-                issueNumber={magazine.issueNumber}
-                year={magazine.year}
-                coverImageUrl={magazine.coverImageUrl}
-                description={magazine.description}
-                price={magazine.price}
-                currency={magazine.currency}
-                isAvailable={magazine.isAvailable}
-              />
+              <MagazineCard key={magazine.id} magazine={magazine} />
             ))}
           </div>
         ) : (

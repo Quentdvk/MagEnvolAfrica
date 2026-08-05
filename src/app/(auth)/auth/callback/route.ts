@@ -6,8 +6,9 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
   const next = searchParams.get('next') ?? '/';
 
-  if (code) {
-    const supabase = await createClient();
+  const supabase = await createClient();
+
+  if (code && supabase) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const forwardedHost = request.headers.get('x-forwarded-host');

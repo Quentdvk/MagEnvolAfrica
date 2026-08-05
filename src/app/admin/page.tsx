@@ -1,77 +1,21 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { getAdminKpis, hasBackOfficeAccess } from '@/lib/data/admin';
 
 export const dynamic = 'force-dynamic';
 
-async function checkAdminRole() {
-  const supabase = await createClient();
-  
-  if (!supabase) {
-    return false;
-  }
-
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return false;
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  return profile?.role === 'administrator';
-}
-
-async function getKPIs() {
-  const supabase = await createClient();
-
-  if (!supabase) {
-    return {
-      totalUsers: 0,
-      totalSubscribers: 0,
-      totalArticles: 0,
-      totalMagazines: 0,
-      totalRevenue: 0,
-    };
-  }
-
-  const [users, subscribers, articles, magazines, payments] = await Promise.all([
-    supabase.from('profiles').select('id', { count: 'exact', head: true }),
-    supabase.from('subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-    supabase.from('articles').select('id', { count: 'exact', head: true }),
-    supabase.from('magazines').select('id', { count: 'exact', head: true }),
-    supabase.from('payments').select('amount').eq('status', 'completed'),
-  ]);
-
-  const totalRevenue = payments.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
-
-  return {
-    totalUsers: users.count || 0,
-    totalSubscribers: subscribers.count || 0,
-    totalArticles: articles.count || 0,
-    totalMagazines: magazines.count || 0,
-    totalRevenue,
-  };
-}
-
 export default async function AdminDashboard() {
-  const isAdmin = await checkAdminRole();
-
-  if (!isAdmin) {
+  if (!(await hasBackOfficeAccess())) {
     redirect('/login');
   }
 
-  const kpis = await getKPIs();
+  const kpis = await getAdminKpis();
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Back-Office Administrateur</h1>
-          <p className="text-gray-600 mt-2">Gestion complète d'Envol Africa Magazine</p>
+          <p className="text-gray-600 mt-2">Gestion complète d&apos;Envol Africa Magazine</p>
         </div>
 
         {/* KPI Cards */}
@@ -136,7 +80,7 @@ export default async function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Revenus</p>
-                <p className="text-3xl font-bold text-gray-900">{kpis.totalRevenue.toLocaleString()} XOF</p>
+                <p className="text-3xl font-bold text-gray-900">{kpis.totalRevenueXof.toLocaleString('fr-FR')} XOF</p>
               </div>
               <div className="bg-indigo-100 p-3 rounded-full">
                 <svg className="w-6 h-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -186,7 +130,7 @@ export default async function AdminDashboard() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Gérer les Catégories</h3>
-                <p className="text-sm text-gray-600">Organiser les catégories d'articles</p>
+                <p className="text-sm text-gray-600">Organiser les catégories d&apos;articles</p>
               </div>
             </div>
           </a>

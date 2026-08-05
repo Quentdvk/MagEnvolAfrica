@@ -138,7 +138,7 @@ export default function Header() {
                 Se connecter
               </Link>
               <Link href="/s-abonner" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
-                S'abonner
+                S&apos;abonner
               </Link>
               <Link href="/faire-un-don" className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
                 Faire un don
@@ -198,7 +198,7 @@ export default function Header() {
               <div className="p-6">
                 <span className="text-2xl font-bold text-indigo-600">ENVOL AFRICA MAGAZINE</span>
                 <p className="mt-4 text-sm text-gray-600">
-                  Une chaîne regroupant toutes les valeurs pour votre succès en entreprises. Plus qu'un magazine, c'est le seul outil qui vous apporte tout pour réussir en affaires et prospérer à tout égard.
+                  Une chaîne regroupant toutes les valeurs pour votre succès en entreprises. Plus qu&apos;un magazine, c&apos;est le seul outil qui vous apporte tout pour réussir en affaires et prospérer à tout égard.
                 </p>
                 <Link href="/soutenir" className="mt-6 block w-full text-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
                   Soutenir Envol Africa
@@ -222,7 +222,7 @@ export default function Header() {
                 <h3 className="text-lg font-bold text-gray-900 mb-2">Osez la réussite !</h3>
                 <p className="text-sm text-gray-600 mb-4">Lisez Envol Africa Magazine</p>
                 <Link href="/s-abonner" className="block w-full text-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
-                  S'abonner
+                  S&apos;abonner
                 </Link>
               </div>
             </div>

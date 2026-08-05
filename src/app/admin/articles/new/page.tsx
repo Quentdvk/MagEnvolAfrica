@@ -1,95 +1,84 @@
 import { redirect } from 'next/navigation';
+import { hasBackOfficeAccess } from '@/lib/data/admin';
+import { getCategories } from '@/lib/data/categories';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-async function checkAdminRole() {
-  const supabase = await createClient();
-  
-  if (!supabase) {
-    return false;
-  }
-
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return false;
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  return profile?.role === 'administrator';
-}
-
-async function getCategories() {
-  const supabase = await createClient();
-
-  if (!supabase) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .order('name');
-
-  if (error) {
-    return [];
-  }
-
-  return data;
+function slugify(title: string) {
+  return title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 80);
 }
 
 async function createArticle(formData: FormData) {
   'use server';
-  
+
   const supabase = await createClient();
-  
+
   if (!supabase) {
     throw new Error('Configuration Supabase manquante');
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
-  
+  if (!(await hasBackOfficeAccess())) {
+    redirect('/login');
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) {
     throw new Error('Non authentifié');
   }
 
   const title = formData.get('title') as string;
-  const content = formData.get('content') as string;
-  const excerpt = formData.get('excerpt') as string;
+  const bodyHtml = formData.get('content') as string;
+  const chapo = formData.get('excerpt') as string;
   const categoryId = formData.get('categoryId') as string;
   const isPublished = formData.get('isPublished') === 'true';
   const isPremium = formData.get('isPremium') === 'true';
 
-  const { error } = await supabase
+  const { data: article, error } = await supabase
     .from('articles')
     .insert({
+      slug: `${slugify(title)}-${Date.now().toString(36)}`,
       title,
-      content,
-      excerpt,
-      categoryId,
-      authorId: user.id,
-      isPublished,
-      isPremium,
-      publishedAt: isPublished ? new Date().toISOString() : null,
-    });
+      chapo,
+      body_html: bodyHtml,
+      author_id: user.id,
+      status: isPublished ? 'publie' : 'brouillon',
+      published_at: isPublished ? new Date().toISOString() : null,
+      is_free: !isPremium,
+    })
+    .select('id')
+    .single();
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (categoryId) {
+    const { error: linkError } = await supabase.from('article_categories').insert({
+      article_id: (article as { id: string }).id,
+      category_id: categoryId,
+      is_primary: true,
+    });
+
+    if (linkError) {
+      throw new Error(linkError.message);
+    }
   }
 
   redirect('/admin/articles');
 }
 
 export default async function NewArticle() {
-  const isAdmin = await checkAdminRole();
-
-  if (!isAdmin) {
+  if (!(await hasBackOfficeAccess())) {
     redirect('/login');
   }
 
@@ -145,9 +134,9 @@ export default async function NewArticle() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">Sélectionner une catégorie</option>
-              {categories.map((category: any) => (
+              {categories.map((category) => (
                 <option key={category.id} value={category.id}>
-                  {category.name}
+                  {category.label}
                 </option>
               ))}
             </select>
@@ -163,7 +152,7 @@ export default async function NewArticle() {
               required
               rows={20}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
-              placeholder="Contenu de l'article en Markdown"
+              placeholder="Contenu de l'article en HTML (&lt;p&gt;...&lt;/p&gt;)"
             />
           </div>
 
@@ -200,7 +189,7 @@ export default async function NewArticle() {
               type="submit"
               className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700"
             >
-              Créer l'article
+              Créer l&apos;article
             </button>
           </div>
         </form>

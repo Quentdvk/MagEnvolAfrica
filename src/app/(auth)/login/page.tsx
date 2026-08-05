@@ -1,14 +1,16 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { SUPABASE_MISSING_CONFIG_MESSAGE } from '@/lib/supabase/config';
 
 export const dynamic = 'force-dynamic';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
-  const { signIn, signInWithOAuth } = useAuth();
+  const nextPath = useSearchParams().get('next') ?? '/';
+  const { signIn, signInWithOAuth, isConfigured } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,7 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push('/');
+      router.push(nextPath);
       router.refresh();
     }
   };
@@ -53,6 +55,12 @@ export default function LoginPage() {
             Accédez à votre espace abonné
           </p>
         </div>
+
+        {!isConfigured && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded text-sm">
+            {SUPABASE_MISSING_CONFIG_MESSAGE}
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -161,11 +169,19 @@ export default function LoginPage() {
           <p className="text-sm text-gray-600">
             Pas encore de compte ?{' '}
             <a href="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-              S'inscrire
+              S&apos;inscrire
             </a>
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -1,57 +1,22 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { getAdminUsers, hasBackOfficeAccess } from '@/lib/data/admin';
 
 export const dynamic = 'force-dynamic';
 
-async function checkAdminRole() {
-  const supabase = await createClient();
-  
-  if (!supabase) {
-    return false;
-  }
-
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return false;
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  return profile?.role === 'administrator';
-}
-
-async function getUsers() {
-  const supabase = await createClient();
-
-  if (!supabase) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('createdAt', { ascending: false });
-
-  if (error) {
-    return [];
-  }
-
-  return data;
-}
+const ROLE_LABELS: Record<string, string> = {
+  inscrit: 'Inscrit',
+  redacteur: 'Rédacteur',
+  redacteur_en_chef: 'Rédacteur en chef',
+  gerant: 'Gérant',
+  administrateur: 'Administrateur',
+};
 
 export default async function AdminUsers() {
-  const isAdmin = await checkAdminRole();
-
-  if (!isAdmin) {
+  if (!(await hasBackOfficeAccess())) {
     redirect('/login');
   }
 
-  const users = await getUsers();
+  const users = await getAdminUsers();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -85,23 +50,23 @@ export default async function AdminUsers() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {users.length > 0 ? (
-                users.map((user: any) => (
+                users.map((user) => (
                   <tr key={user.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user.email}
+                      {user.email ?? '—'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{user.firstName} {user.lastName}</div>
+                      <div className="text-sm text-gray-900">{user.fullName ?? '—'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.role === 'administrator' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : user.role === 'editor' 
+                        user.role === 'administrateur'
+                          ? 'bg-purple-100 text-purple-800'
+                          : user.role === 'redacteur' || user.role === 'redacteur_en_chef'
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {user.role || 'user'}
+                        {ROLE_LABELS[user.role] ?? user.role}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

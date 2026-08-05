@@ -1,98 +1,26 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
-
-interface Article {
-  id: string;
-  title: string;
-  content: string;
-  excerpt: string;
-  imageUrl?: string;
-  category: string;
-  author: string;
-  publishedAt: string;
-  readTime?: number;
-  freeLines?: number;
-  isPremium: boolean;
-}
+import { getArticleById } from '@/lib/data/articles';
+import { getActiveSubscriptionForCurrentUser } from '@/lib/data/subscriptions';
+import { splitHtmlForPaywall } from '@/lib/content/paywall';
 
 export const dynamic = 'force-dynamic';
 
-async function getArticle(id: string): Promise<Article | null> {
-  const supabase = await createClient();
-
-  if (!supabase) {
-    // Return mock data for development without Supabase
-    return {
-      id,
-      title: 'Article Exemple',
-      content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\nSed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.\n\nNemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.\n\nUt enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur?\n\nQuis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?',
-      excerpt: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-      category: 'Économie',
-      author: 'Jean Dupont',
-      publishedAt: new Date().toISOString(),
-      readTime: 5,
-      freeLines: 12,
-      isPremium: true,
-    };
-  }
-
-  const { data, error } = await supabase
-    .from('articles')
-    .select('*')
-    .eq('id', id)
-    .eq('status', 'published')
-    .single();
-
-  if (error || !data) {
-    return null;
-  }
-
-  return data as Article;
-}
-
-async function getUserSubscription(userId: string) {
-  const supabase = await createClient();
-
-  if (!supabase) {
-    return null;
-  }
-
-  const { data } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('userId', userId)
-    .eq('status', 'active')
-    .gte('endDate', new Date().toISOString())
-    .single();
-
-  return data;
-}
-
-function splitContentByLines(content: string, freeLines: number = 12) {
-  const lines = content.split('\n');
-  const freeContent = lines.slice(0, freeLines).join('\n');
-  const degradedLines = lines.slice(freeLines, freeLines + 3).join('\n');
-  const lockedContent = lines.slice(freeLines + 3).join('\n');
-
-  return { freeContent, degradedLines, lockedContent, hasLocked: lines.length > freeLines };
-}
-
-export default async function ArticlePage({ params }: { params: { id: string } }) {
-  const article = await getArticle(params.id);
+export default async function ArticlePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const article = await getArticleById(id);
 
   if (!article) {
     notFound();
   }
 
-  const { freeContent, degradedLines, lockedContent, hasLocked } = splitContentByLines(
-    article.content,
-    article.freeLines || 12
+  const { freeHtml, blurredHtml, hasLocked } = splitHtmlForPaywall(
+    article.bodyHtml,
+    article.previewLines
   );
 
-  // Check if user has active subscription
-  // This will be enhanced with actual auth check when Supabase is configured
-  const hasSubscription = false; // TODO: Implement actual subscription check
+  const subscription = article.isFree ? null : await getActiveSubscriptionForCurrentUser();
+  const hasAccess = article.isFree || !!subscription;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -112,7 +40,7 @@ export default async function ArticlePage({ params }: { params: { id: string } }
             <span className="bg-indigo-600 text-white text-sm font-medium px-3 py-1 rounded">
               {article.category}
             </span>
-            {article.isPremium && (
+            {!article.isFree && (
               <span className="bg-yellow-500 text-white text-sm font-medium px-3 py-1 rounded">
                 Premium
               </span>
@@ -127,38 +55,29 @@ export default async function ArticlePage({ params }: { params: { id: string } }
             <span className="font-medium">{article.author}</span>
             <span>•</span>
             <span>{formatDate(article.publishedAt)}</span>
-            {article.readTime && (
+            {article.readTimeMinutes && (
               <>
                 <span>•</span>
-                <span>{article.readTime} min de lecture</span>
+                <span>{article.readTimeMinutes} min de lecture</span>
               </>
             )}
           </div>
         </header>
 
-        {/* Featured Image */}
-        {article.imageUrl && (
-          <div className="relative h-96 w-full mb-8 rounded-lg overflow-hidden">
-            <img
-              src={article.imageUrl}
-              alt={article.title}
-              className="object-cover w-full h-full"
-            />
-          </div>
-        )}
-
         {/* Content */}
         <div className="prose prose-lg max-w-none">
-          <div className="text-gray-800 leading-relaxed whitespace-pre-line">
-            {freeContent}
-          </div>
+          <div
+            className="text-gray-800 leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: hasAccess ? article.bodyHtml : freeHtml }}
+          />
 
-          {hasLocked && !hasSubscription && (
+          {hasLocked && !hasAccess && (
             <>
               {/* Degraded Lines */}
-              <div className="text-gray-400 leading-relaxed whitespace-pre-line blur-sm select-none">
-                {degradedLines}
-              </div>
+              <div
+                className="text-gray-400 leading-relaxed blur-sm select-none"
+                dangerouslySetInnerHTML={{ __html: blurredHtml }}
+              />
 
               {/* Paywall */}
               <div className="my-12 p-8 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border-2 border-indigo-200">
@@ -174,7 +93,7 @@ export default async function ArticlePage({ params }: { params: { id: string } }
                       href="/s-abonner"
                       className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
                     >
-                      S'abonner
+                      S&apos;abonner
                     </Link>
                     <Link
                       href="/login"
@@ -194,19 +113,11 @@ export default async function ArticlePage({ params }: { params: { id: string } }
                   </svg>
                   <span className="text-gray-500 font-medium">Contenu verrouillé</span>
                 </div>
-                <div className="text-gray-400 leading-relaxed whitespace-pre-line blur-sm select-none">
-                  {lockedContent}
-                </div>
+                <div className="h-32 bg-gray-200 rounded" aria-hidden="true" />
               </div>
             </>
           )}
 
-          {hasLocked && hasSubscription && (
-            <div className="text-gray-800 leading-relaxed whitespace-pre-line">
-              {degradedLines}
-              {lockedContent}
-            </div>
-          )}
         </div>
 
         {/* Article Footer */}
@@ -217,7 +128,7 @@ export default async function ArticlePage({ params }: { params: { id: string } }
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
-                <span>J'aime</span>
+                <span>J&apos;aime</span>
               </button>
               <button className="flex items-center space-x-2 text-gray-600 hover:text-indigo-600 transition-colors">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
