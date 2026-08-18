@@ -1,9 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function Header() {
+  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -71,12 +73,12 @@ export default function Header() {
 
             {/* Sélecteurs langue/devise à droite */}
             <div className="flex items-center space-x-4">
-              <select className="text-sm border-none bg-transparent cursor-pointer hover:text-indigo-600">
+              <select aria-label="Sélectionner une rubrique" onChange={(e) => router.push(e.target.value)} className="text-sm border-none bg-transparent cursor-pointer hover:text-indigo-600">
                 <option value="fr">FR</option>
                 <option value="en">EN</option>
                 <option value="es">ES</option>
               </select>
-              <select className="text-sm border-none bg-transparent cursor-pointer hover:text-indigo-600">
+              <select aria-label="Sélectionner une rubrique" onChange={(e) => router.push(e.target.value)} className="text-sm border-none bg-transparent cursor-pointer hover:text-indigo-600">
                 <option value="XOF">XOF</option>
                 <option value="EUR">EUR</option>
                 <option value="USD">USD</option>
@@ -87,7 +89,7 @@ export default function Header() {
       </div>
 
       {/* Ligne 2 - Barre principale (sticky) */}
-      <div className={`bg-white border-b border-gray-200 transition-all duration-300 ${isScrolled ? 'fixed top-0 left-0 right-0 z-50 shadow-md' : ''}`}>
+      <div className={`relative z-40 bg-white border-b border-gray-200 transition-all duration-300 ${isScrolled ? 'fixed top-0 left-0 right-0 z-50 shadow-md' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
@@ -97,7 +99,7 @@ export default function Header() {
 
             {/* Menu déroulant principal */}
             <div className="hidden md:flex items-center space-x-6">
-              <select className="text-sm border border-gray-300 rounded-md px-3 py-1">
+              <select aria-label="Navigation principale" onChange={(e) => router.push(e.target.value)} className="text-sm border border-gray-300 rounded-md px-3 py-1">
                 {mainMenuItems.map((item) => (
                   <option key={item.name} value={item.href}>
                     {item.name}
